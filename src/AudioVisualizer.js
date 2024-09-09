@@ -1,4 +1,3 @@
-// src/AudioVisualizer.js
 import React, { useRef, useEffect } from "react";
 
 const AudioVisualizer = ({ audioContext, sourceNode }) => {

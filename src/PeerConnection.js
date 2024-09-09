@@ -1,4 +1,3 @@
-// src/PeerConnection.js
 import React, { useState, useEffect, useRef } from "react";
 import SimplePeer from "simple-peer";
 import AudioVisualizer from "./AudioVisualizer";
@@ -13,6 +12,28 @@ const PeerConnection = () => {
   const gainNodeRef = useRef();
   const biquadFilterRef = useRef();
   const sourceNodeRef = useRef();
+  const wsRef = useRef(null); // WebSocket reference
+
+  useEffect(() => {
+    // Connect to the signaling server
+    wsRef.current = new WebSocket("ws://localhost:8080"); // Make sure to match the server URL and port
+
+    wsRef.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (peer && !peer.destroyed) {
+        peer.signal(data);
+        console.log("Signaling data applied:", data);
+      }
+    };
+
+    wsRef.current.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, [peer]);
 
   useEffect(() => {
     if (audioStream && isStreaming) {
@@ -23,7 +44,10 @@ const PeerConnection = () => {
       });
 
       newPeer.on("signal", (data) => {
-        console.log("Signal data:", data);
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify(data)); // Send signaling data to the WebSocket server
+        }
+        console.log("Signal data sent:", data);
       });
 
       newPeer.on("stream", (stream) => {
@@ -94,20 +118,6 @@ const PeerConnection = () => {
     setIsFilterOn(!isFilterOn);
   };
 
-  const handleSignalDataInput = (event) => {
-    try {
-      const data = JSON.parse(event.target.value);
-      if (peer && !peer.destroyed) {
-        peer.signal(data);
-        console.log("Signaling data applied:", data);
-      } else {
-        console.error("Peer is destroyed or invalid. Cannot signal.");
-      }
-    } catch (err) {
-      console.error("Invalid signal data format:", err);
-    }
-  };
-
   return (
     <div>
       <button onClick={startStreaming}>Start Streaming</button>
@@ -118,12 +128,6 @@ const PeerConnection = () => {
         {isFilterOn ? "Disable Filter" : "Enable Filter"}
       </button>
       <audio ref={audioRef} controls />
-      <textarea
-        placeholder="Paste signaling data here and press Enter"
-        onKeyDown={(e) => e.key === "Enter" && handleSignalDataInput(e)}
-        rows={4}
-        cols={50}
-      />
       {audioContextRef.current && sourceNodeRef.current && (
         <AudioVisualizer
           audioContext={audioContextRef.current}
