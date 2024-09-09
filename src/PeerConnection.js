@@ -24,6 +24,10 @@ const PeerConnection = () => {
         audioRef.current.play();
       });
 
+      newPeer.on("connect", () => {
+        console.log("Peer connected successfully!");
+      });
+
       setPeer(newPeer);
     }
   }, [audioStream, isStreaming]);
@@ -39,6 +43,18 @@ const PeerConnection = () => {
     setIsStreaming(false);
   };
 
+  const handleSignalDataInput = (event) => {
+    try {
+      const data = JSON.parse(event.target.value);
+      if (peer) {
+        peer.signal(data);
+        console.log("Signaling data applied:", data);
+      }
+    } catch (err) {
+      console.error("Invalid signal data format:", err);
+    }
+  };
+
   return (
     <div>
       <button onClick={startStreaming}>Start Streaming</button>
@@ -46,6 +62,12 @@ const PeerConnection = () => {
         Stop Streaming
       </button>
       <audio ref={audioRef} controls />
+      <textarea
+        placeholder="Paste signaling data here and press Enter"
+        onKeyDown={(e) => e.key === "Enter" && handleSignalDataInput(e)}
+        rows={4}
+        cols={50}
+      />
     </div>
   );
 };
