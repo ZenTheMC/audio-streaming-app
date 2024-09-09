@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import SimplePeer from "simple-peer";
+import { Buffer } from "buffer";
+import process from "process";
+
+window.Buffer = Buffer;
+window.process = process;
 
 const PeerConnection = () => {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -43,12 +48,27 @@ const PeerConnection = () => {
     setIsStreaming(false);
   };
 
+  // const handleSignalDataInput = (event) => {
+  //   try {
+  //     const data = JSON.parse(event.target.value);
+  //     if (peer) {
+  //       peer.signal(data);
+  //       console.log("Signaling data applied:", data);
+  //     }
+  //   } catch (err) {
+  //     console.error("Invalid signal data format:", err);
+  //   }
+  // };
+
   const handleSignalDataInput = (event) => {
     try {
       const data = JSON.parse(event.target.value);
-      if (peer) {
-        peer.signal(data);
+      if (peer && !peer.destroyed) {
+        // Check if peer is not destroyed
+        peer.signal(data); // Apply the received signal data to the current peer
         console.log("Signaling data applied:", data);
+      } else {
+        console.error("Peer is destroyed or invalid. Cannot signal.");
       }
     } catch (err) {
       console.error("Invalid signal data format:", err);
