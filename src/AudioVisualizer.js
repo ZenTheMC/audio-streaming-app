@@ -1,15 +1,15 @@
 import React, { useRef, useEffect } from "react";
 
 const AudioVisualizer = ({ audioContext, sourceNode }) => {
-  const canvasRef = useRef(); // Keep this ref for the canvas
+  const canvasRef = useRef();
 
   useEffect(() => {
     if (!audioContext || !sourceNode) return;
 
     const canvas = canvasRef.current;
     const canvasContext = canvas.getContext("2d");
-    const analyser = audioContext.createAnalyser(); // Create AnalyserNode
-    sourceNode.connect(analyser); // Ensure sourceNode is connected only once
+    const analyser = audioContext.createAnalyser();
+    sourceNode.connect(analyser);
     analyser.fftSize = 2048;
 
     const bufferLength = analyser.frequencyBinCount;

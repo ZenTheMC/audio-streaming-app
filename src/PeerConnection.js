@@ -12,11 +12,10 @@ const PeerConnection = () => {
   const gainNodeRef = useRef();
   const biquadFilterRef = useRef();
   const sourceNodeRef = useRef();
-  const wsRef = useRef(null); // WebSocket reference
+  const wsRef = useRef(null);
 
   useEffect(() => {
-    // Connect to the signaling server
-    wsRef.current = new WebSocket("ws://localhost:8080"); // Make sure to match the server URL and port
+    wsRef.current = new WebSocket("ws://localhost:8080");
 
     wsRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -38,14 +37,14 @@ const PeerConnection = () => {
   useEffect(() => {
     if (audioStream && isStreaming) {
       const newPeer = new SimplePeer({
-        initiator: window.location.hash === "#1", // one user should be initiator
+        initiator: window.location.hash === "#1",
         trickle: false,
         stream: audioStream,
       });
 
       newPeer.on("signal", (data) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify(data)); // Send signaling data to the WebSocket server
+          wsRef.current.send(JSON.stringify(data));
         }
         console.log("Signal data sent:", data);
       });
@@ -55,22 +54,18 @@ const PeerConnection = () => {
           window.webkitAudioContext)();
         const source = audioContext.createMediaStreamSource(stream);
 
-        // Create Gain Node
         const gainNode = audioContext.createGain();
-        gainNode.gain.value = 0.75; // Set default gain
+        gainNode.gain.value = 0.75;
 
-        // Create Frequency Filter
         const biquadFilter = audioContext.createBiquadFilter();
         biquadFilter.type = "lowshelf";
-        biquadFilter.frequency.setValueAtTime(200, audioContext.currentTime); // Set frequency to 200 Hz
-        biquadFilter.gain.setValueAtTime(0, audioContext.currentTime); // Neutral gain for frequency
+        biquadFilter.frequency.setValueAtTime(200, audioContext.currentTime);
+        biquadFilter.gain.setValueAtTime(0, audioContext.currentTime);
 
-        // Connect nodes
         source.connect(gainNode);
         gainNode.connect(biquadFilter);
         biquadFilter.connect(audioContext.destination);
 
-        // Store references for toggling
         audioContextRef.current = audioContext;
         gainNodeRef.current = gainNode;
         biquadFilterRef.current = biquadFilter;
@@ -106,11 +101,9 @@ const PeerConnection = () => {
     if (!audioContextRef.current) return;
 
     if (isFilterOn) {
-      // Disable filter
       gainNodeRef.current.disconnect(biquadFilterRef.current);
       gainNodeRef.current.connect(audioContextRef.current.destination);
     } else {
-      // Enable filter
       gainNodeRef.current.connect(biquadFilterRef.current);
       biquadFilterRef.current.connect(audioContextRef.current.destination);
     }
