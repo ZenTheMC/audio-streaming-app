@@ -1,21 +1,23 @@
+// src/PeerConnection.js
 import React, { useState, useEffect, useRef } from "react";
 import SimplePeer from "simple-peer";
-import { Buffer } from "buffer";
-import process from "process";
-
-window.Buffer = Buffer;
-window.process = process;
+import AudioVisualizer from "./AudioVisualizer";
 
 const PeerConnection = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [audioStream, setAudioStream] = useState(null);
   const [peer, setPeer] = useState(null);
+  const [isFilterOn, setIsFilterOn] = useState(false);
   const audioRef = useRef();
+  const audioContextRef = useRef();
+  const gainNodeRef = useRef();
+  const biquadFilterRef = useRef();
+  const sourceNodeRef = useRef();
 
   useEffect(() => {
     if (audioStream && isStreaming) {
       const newPeer = new SimplePeer({
-        initiator: window.location.hash === "#1",
+        initiator: window.location.hash === "#1", // one user should be initiator
         trickle: false,
         stream: audioStream,
       });
@@ -25,6 +27,31 @@ const PeerConnection = () => {
       });
 
       newPeer.on("stream", (stream) => {
+        const audioContext = new (window.AudioContext ||
+          window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+
+        // Create Gain Node
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.75; // Set default gain
+
+        // Create Frequency Filter
+        const biquadFilter = audioContext.createBiquadFilter();
+        biquadFilter.type = "lowshelf";
+        biquadFilter.frequency.setValueAtTime(200, audioContext.currentTime); // Set frequency to 200 Hz
+        biquadFilter.gain.setValueAtTime(0, audioContext.currentTime); // Neutral gain for frequency
+
+        // Connect nodes
+        source.connect(gainNode);
+        gainNode.connect(biquadFilter);
+        biquadFilter.connect(audioContext.destination);
+
+        // Store references for toggling
+        audioContextRef.current = audioContext;
+        gainNodeRef.current = gainNode;
+        biquadFilterRef.current = biquadFilter;
+        sourceNodeRef.current = source;
+
         audioRef.current.srcObject = stream;
         audioRef.current.play();
       });
@@ -45,27 +72,33 @@ const PeerConnection = () => {
 
   const stopStreaming = () => {
     if (peer) peer.destroy();
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
     setIsStreaming(false);
   };
 
-  // const handleSignalDataInput = (event) => {
-  //   try {
-  //     const data = JSON.parse(event.target.value);
-  //     if (peer) {
-  //       peer.signal(data);
-  //       console.log("Signaling data applied:", data);
-  //     }
-  //   } catch (err) {
-  //     console.error("Invalid signal data format:", err);
-  //   }
-  // };
+  const toggleFilter = () => {
+    if (!audioContextRef.current) return;
+
+    if (isFilterOn) {
+      // Disable filter
+      gainNodeRef.current.disconnect(biquadFilterRef.current);
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+    } else {
+      // Enable filter
+      gainNodeRef.current.connect(biquadFilterRef.current);
+      biquadFilterRef.current.connect(audioContextRef.current.destination);
+    }
+
+    setIsFilterOn(!isFilterOn);
+  };
 
   const handleSignalDataInput = (event) => {
     try {
       const data = JSON.parse(event.target.value);
       if (peer && !peer.destroyed) {
-        // Check if peer is not destroyed
-        peer.signal(data); // Apply the received signal data to the current peer
+        peer.signal(data);
         console.log("Signaling data applied:", data);
       } else {
         console.error("Peer is destroyed or invalid. Cannot signal.");
@@ -81,6 +114,9 @@ const PeerConnection = () => {
       <button onClick={stopStreaming} disabled={!isStreaming}>
         Stop Streaming
       </button>
+      <button onClick={toggleFilter} disabled={!isStreaming}>
+        {isFilterOn ? "Disable Filter" : "Enable Filter"}
+      </button>
       <audio ref={audioRef} controls />
       <textarea
         placeholder="Paste signaling data here and press Enter"
@@ -88,6 +124,12 @@ const PeerConnection = () => {
         rows={4}
         cols={50}
       />
+      {audioContextRef.current && sourceNodeRef.current && (
+        <AudioVisualizer
+          audioContext={audioContextRef.current}
+          sourceNode={sourceNodeRef.current}
+        />
+      )}
     </div>
   );
 };
